@@ -12,10 +12,14 @@ import (
   value用于获取和修改原始数据的值（修改slice和map中的元素，修改struct的成员变量）
 */
 
+type People interface {
+	GetName()
+}
+
 type User struct {
-	Sex  bool   `json:"sex"`
 	Name string `json:"name"`
 	Age  int    `json:"age"`
+	Sex  bool   `json:"sex"`
 }
 
 func (u *User) GetName() {
@@ -32,17 +36,26 @@ func (u *User) GetSex() {
 }
 
 func main() {
+
+	//reflect.type
 	//test1()
 	//test2()
 	//test3()
 	//test4()
 	//test5()
+	//test5_1()
+
+	//reflect.value
 	//test6()
 	//test7()
 	//test8()
 	//test9()
 	//test10()
-	test11()
+	//test11()
+
+	//test12()
+	//test13()
+	test14()
 }
 
 //reflect.type
@@ -57,6 +70,7 @@ func test1() {
 	typeUser := reflect.TypeOf(&User{})
 	fmt.Println(typeUser)
 	fmt.Println(typeUser.Kind())
+	fmt.Println(typeUser.Elem())
 	fmt.Println(typeUser.Elem().Kind())
 
 }
@@ -67,6 +81,9 @@ func test2() {
 	typeUser := reflect.TypeOf(&User{})
 	typeUser2 := reflect.TypeOf(User{})
 
+	fmt.Println(typeUser)
+	fmt.Println(typeUser2)
+
 	fmt.Println(typeUser.Elem() == typeUser2)
 
 }
@@ -76,15 +93,15 @@ func test3() {
 
 	fmt.Println("==================")
 	typeUser := reflect.TypeOf(User{})
-	fieldNum := typeUser.NumField()
+	fieldNum := typeUser.NumField() // 成员变量的个数
 	for i := 0; i < fieldNum; i++ {
-		field := typeUser.Field(i)
+		field := typeUser.Field(i) // 返回一个struct, 该结构体描述了这个字段的属性等
 		fmt.Printf("%d %s offset %d anonymous %t type %s exported %t json tag %s\n", i,
-			field.Name,         //变量名称
-			field.Offset,       //相对于结构体首地址的内存偏移量，string类型会占据16个字节, int类型占用8个字节,
-			field.Anonymous,    //是否为匿名成员
-			field.Type,         //数据类型
-			field.IsExported(), //包外是否可见
+			field.Name,         // 变量名称
+			field.Offset,       // 相对于结构体首地址的内存偏移量，string类型会占据16个字节, int类型占用8个字节,
+			field.Anonymous,    // 是否为匿名成员
+			field.Type,         // 数据类型
+			field.IsExported(), // 包外是否可见
 			field.Tag.Get("json"))
 	}
 
@@ -103,7 +120,7 @@ func test4() {
 
 	fmt.Println("==================")
 	typeUser := reflect.TypeOf(User{})
-	methodNum := typeUser.NumMethod() //成员方法的个数
+	methodNum := typeUser.NumMethod() //成员方法的个数 接受者为值的放
 	for i := 0; i < methodNum; i++ {
 		method := typeUser.Method(i)
 		fmt.Printf("method name: %s, type: %s, exported:%t\n", method.Name, method.Type, method.IsExported())
@@ -115,7 +132,7 @@ func test4() {
 
 	fmt.Println()
 	typeUser2 := reflect.TypeOf(&User{})
-	methodNum = typeUser2.NumMethod()
+	methodNum = typeUser2.NumMethod() //接受者为指针和值的方法都包含在内
 	for i := 0; i < methodNum; i++ {
 		method := typeUser2.Method(i)
 		fmt.Printf("method name: %s, type: %s, exported:%t\n", method.Name, method.Type, method.IsExported())
@@ -127,7 +144,7 @@ func Add(a, b int) int {
 	return a + b
 }
 
-//获取函数的信息
+//直接获取函数的信息
 func test5() {
 	typeFunc := reflect.TypeOf(Add)
 	fmt.Println(typeFunc.Kind() == reflect.Func)
@@ -135,13 +152,24 @@ func test5() {
 	argOutNum := typeFunc.NumOut() //输出参数的个数
 	for i := 0; i < argInNum; i++ {
 		argType := typeFunc.In(i)
-		fmt.Printf("第%d个输入参数的类型%s\n", i, argType)
+		fmt.Printf("第%d个输入参数的类型%s, kind: %s\n", i, argType, argType.Kind())
 	}
 
 	for i := 0; i < argOutNum; i++ {
 		argType := typeFunc.Out(i)
-		fmt.Printf("第%d个输入参数的类型%s\n", i, argType)
+		fmt.Printf("第%d个输入参数的类型%s, kind: %s\n", i, argType, argType.Kind())
 	}
+}
+
+// 判断类型是否实现了某接口
+func test5_1() {
+
+	typeOfPeople := reflect.TypeOf((*People)(nil)).Elem()
+	fmt.Println(typeOfPeople)
+	fmt.Printf("typeOfPeople kind is interface %t \n", typeOfPeople.Kind() == reflect.Interface)
+	//t1 := reflect.TypeOf(User{})
+	t2 := reflect.TypeOf(&User{})
+	fmt.Printf("t2 implements people interface %t \n", t2.Implements(typeOfPeople))
 }
 
 //reflect.value
@@ -212,10 +240,10 @@ func test8() {
 		Name: "张三丰",
 		Age:  22,
 	}
-	valueI := reflect.ValueOf(&i) //这里要传指针
+	valueI := reflect.ValueOf(&i) //要修改就在这里要传指针
 	valueS := reflect.ValueOf(&s)
 	valueUser := reflect.ValueOf(&user)
-	valueI.Elem().SetInt(8) //通过Elem()返回指针指向的对象
+	valueI.Elem().SetInt(8) //valueI对应的原始对象是指针，通过Elem()返回指针指向的对象
 	valueS.Elem().SetString("golang")
 	valueUser.Elem().FieldByName("Age").SetInt(77)
 	fmt.Println(user)
@@ -263,7 +291,9 @@ func test9() {
 	userMap[1] = u1
 
 	mapValue := reflect.ValueOf(&userMap)
+	//往map添加一个key-value
 	mapValue.Elem().SetMapIndex(reflect.ValueOf(2), reflect.ValueOf(u2))
+	//根据key取出对应的map
 	mapValue.Elem().MapIndex(reflect.ValueOf(1)).Elem().FieldByName("Name").SetString("张三丰")
 
 	fmt.Println(*userMap[1], *userMap[2])
@@ -275,7 +305,7 @@ func test10() {
 
 	valueFunc := reflect.ValueOf(Add) //函数也是一种数据类型
 	typeFunc := reflect.TypeOf(Add)
-	argsNum := typeFunc.NumIn()            //函数输入参数的个数
+	argsNum := typeFunc.NumIn()            //reflect.Type 获取输入参数的个数
 	args := make([]reflect.Value, argsNum) //准函数的输入参数
 	for i := 0; i < argsNum; i++ {
 		if typeFunc.In(i).Kind() == reflect.Int {
@@ -289,6 +319,7 @@ func test10() {
 		sum := sumValue[0].Interface().(int) //从value转换为原始类型
 		fmt.Printf("sum=%d\n", sum)
 	}
+
 }
 
 //调用成员方法
@@ -305,4 +336,44 @@ func test11() {
 	result := resultValue[0].Interface().(int)
 	fmt.Println(result)
 
+}
+
+//创建struct
+func test12() {
+	t := reflect.TypeOf(User{})
+	value := reflect.New(t)
+	value.Elem().FieldByName("Age").SetInt(10)
+	user := value.Interface().(*User)
+	fmt.Println(user)
+}
+
+//创建slice
+func test13() {
+	var slice []User
+	sliceType := reflect.TypeOf(slice)
+	sliceValue := reflect.MakeSlice(sliceType, 1, 3)
+	sliceValue.Index(0).Set(reflect.ValueOf(User{
+		Age:  8,
+		Name: "李达",
+	}))
+	users := sliceValue.Interface().([]User)
+	fmt.Printf("1st user name %s\n", users[0].Name)
+}
+
+func test14() {
+
+	var userMap map[int]*User
+	mapType := reflect.TypeOf(userMap)
+
+	mapValue := reflect.MakeMapWithSize(mapType, 10)
+	user := &User{
+		Name: "杰克逊",
+		Age:  44,
+		Sex:  false,
+	}
+	key := reflect.ValueOf(user.Age)
+	mapValue.SetMapIndex(key, reflect.ValueOf(user))
+	mapValue.MapIndex(key).Elem().FieldByName("Name").SetString("令狐一刀")
+	userMap = mapValue.Interface().(map[int]*User)
+	fmt.Printf("user name %s %s \n", userMap[44].Name, user.Name)
 }
